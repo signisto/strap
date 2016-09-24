@@ -25,14 +25,14 @@ Open https://osx-strap.herokuapp.com in your web browser.
 
 Alternatively, to run Strap locally run:
 ```bash
-git clone https://github.com/mikemcquaid/strap
+git clone https://github.com/signisto/strap
 cd strap
 bash bin/strap.sh # or bash bin/strap.sh --debug for more debugging output
 ```
 
 Alternatively, to run the web application locally run:
 ```bash
-git clone https://github.com/mikemcquaid/strap
+git clone https://github.com/signisto/strap
 cd strap
 GITHUB_KEY="..." GITHUB_SECRET="..." ./script/server
 ```
@@ -46,17 +46,9 @@ Alternatively, to deploy to [Heroku](https://www.heroku.com) click:
 - `GITHUB_SECRET`: the GitHub.com Application Client Secret..
 - `SESSION_SECRET`: the secret used for cookie session storage.
 - `WEB_CONCURRENCY`: the number of Unicorn (web server) processes to run (defaults to 3).
-- `STRAP_ISSUES_URL`: the URL where users should file issues (defaults to https://github.com/mikemcquaid/strap/issues/new).
+- `STRAP_ISSUES_URL`: the URL where users should file issues (defaults to https://github.com/signisto/strap/issues/new).
 - `STRAP_BEFORE_INSTALL`: instructions displayed in the web application for users to follow before installing Strap (will be wrapped in `<li>` tags).
-
-## Status
-Stable and in active development.
-
-[![Build Status](https://travis-ci.org/MikeMcQuaid/strap.svg)](https://travis-ci.org/MikeMcQuaid/strap)
-
-## Contact
-[Mike McQuaid](mailto:mike@mikemcquaid.com)
 
 ## License
 Strap is licensed under the [MIT License](http://en.wikipedia.org/wiki/MIT_License).
-The full license text is available in [LICENSE.txt](https://github.com/mikemcquaid/strap/blob/master/LICENSE.txt).
+The full license text is available in [LICENSE.txt](https://github.com/signisto/strap/blob/master/LICENSE.txt).
