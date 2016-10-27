@@ -21,7 +21,7 @@ Strap is a script to bootstrap a minimal OS X development system. This does not 
 - Mostly idempotent (the slow bit is rerunning `brew update`)
 
 ## Usage
-Open https://osx-strap.herokuapp.com in your web browser.
+Open https://strap.signisto.com in your web browser.
 
 Alternatively, to run Strap locally run:
 ```bash
