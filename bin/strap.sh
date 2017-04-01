@@ -1,6 +1,6 @@
 #!/bin/bash
 #/ Usage: bin/strap.sh [--debug]
-#/ Install development dependencies on Mac OS X.
+#/ Install development dependencies on macOS.
 set -e
 
 # Keep sudo timestamp updated while Strap is running.
@@ -60,11 +60,11 @@ STRAP_FULL_PATH="$(cd "$(dirname "$0")" && pwd)/$(basename "$0")"
 
 abort() { STRAP_STEP="";   echo "!!! $*" >&2; exit 1; }
 log()   { STRAP_STEP="$*"; echo "--> $*"; }
-logn()  { STRAP_STEP="$*"; printf -- "--> $* "; }
+logn()  { STRAP_STEP="$*"; printf -- "--> %s " "$*"; }
 logk()  { STRAP_STEP="";   echo "OK"; }
 
 sw_vers -productVersion | grep $Q -E "^10.(9|10|11|12)" || {
-  abort "Run Strap on Mac OS X 10.9/10/11/12."
+  abort "Run Strap on macOS 10.9/10/11/12."
 }
 
 [ "$USER" = "root" ] && abort "Run Strap as yourself, not root."
@@ -274,6 +274,11 @@ if [ -n "$STRAP_GITHUB_USER" ]; then
     if [ ! -d "$HOME/.dotfiles" ]; then
       log "Cloning to ~/.dotfiles:"
       git clone $Q "$DOTFILES_URL" ~/.dotfiles
+    else
+      (
+        cd ~/.dotfiles
+        git pull $Q --rebase --autostash
+      )
     fi
     (
       cd ~/.dotfiles
