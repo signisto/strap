@@ -70,13 +70,40 @@ abort() { STRAP_STEP="";   echo "!!! $*" >&2; exit 1; }
 log()   { STRAP_STEP="$*"; sudo_init; echo "--> $*"; }
 logn()  { STRAP_STEP="$*"; sudo_init; printf -- "--> %s " "$*"; }
 logk()  { STRAP_STEP="";   echo "OK"; }
+escape() {
+  printf '%s' "${1//\'/\'}"
+}
 
-sw_vers -productVersion | grep $Q -E "^10.(9|10|11|12|13)" || {
-  abort "Run Strap on macOS 10.9/10/11/12/13."
+# Given a list of scripts in the dotfiles repo, run the first one that exists
+run_dotfile_scripts() {
+  if [ -d ~/.dotfiles ]; then
+    (
+      cd ~/.dotfiles
+      for i in "$@"; do
+        if [ -f "$i" ] && [ -x "$i" ]; then
+          log "Running dotfiles $i:"
+          if [ -z "$STRAP_DEBUG" ]; then
+            "$i" 2>/dev/null
+          else
+            "$i"
+          fi
+          break
+        fi
+      done
+    )
+  fi
+}
+
+MACOS_VERSION="$(sw_vers -productVersion)"
+echo "$MACOS_VERSION" | grep $Q -E "^10.(9|10|11|12|13|14)" || {
+  abort "Run Strap on macOS 10.9/10/11/12/13/14."
 }
 
 [ "$USER" = "root" ] && abort "Run Strap as yourself, not root."
 groups | grep $Q admin || abort "Add $USER to the admin group."
+
+# Prevent sleeping during script execution, as long as the machine is on AC power
+caffeinate -s -w $$ &
 
 # Set some basic security settings.
 logn "Configuring security settings:"
@@ -92,9 +119,11 @@ sudo defaults write /Library/Preferences/com.apple.alf globalstate -int 1
 sudo launchctl load /System/Library/LaunchDaemons/com.apple.alf.agent.plist 2>/dev/null
 
 if [ -n "$STRAP_GIT_NAME" ] && [ -n "$STRAP_GIT_EMAIL" ]; then
+  LOGIN_TEXT=$(escape "Found this computer? Please contact $STRAP_GIT_NAME at $STRAP_GIT_EMAIL.")
+  echo "$LOGIN_TEXT" | grep -q '[()]' && LOGIN_TEXT="'$LOGIN_TEXT'"
   sudo defaults write /Library/Preferences/com.apple.loginwindow \
     LoginwindowText \
-    "Found this computer? Please contact $STRAP_GIT_NAME at $STRAP_GIT_EMAIL."
+    "$LOGIN_TEXT"
 fi
 logk
 
@@ -117,18 +146,39 @@ else
 fi
 
 # Install the Xcode Command Line Tools.
-if ! [ -f "/Library/Developer/CommandLineTools/usr/bin/git" ] || \
-   ! [ -f "/usr/include/iconv.h" ]
+if ! [ -f "/Library/Developer/CommandLineTools/usr/bin/git" ]
 then
   log "Installing the Xcode Command Line Tools:"
   CLT_PLACEHOLDER="/tmp/.com.apple.dt.CommandLineTools.installondemand.in-progress"
   sudo touch "$CLT_PLACEHOLDER"
+
+  # shellcheck disable=SC2086,SC2183
+  printf -v MACOS_VERSION_NUMERIC "%02d%02d%02d" ${MACOS_VERSION//./ }
+  if [ "$MACOS_VERSION_NUMERIC" -ge "100900" ] &&
+     [ "$MACOS_VERSION_NUMERIC" -lt "101000" ]
+  then
+    CLT_MACOS_VERSION="Mavericks"
+  else
+    CLT_MACOS_VERSION="$(echo "$MACOS_VERSION" | grep -E -o "10\\.\\d+")"
+  fi
+  if [ "$MACOS_VERSION_NUMERIC" -ge "101300" ]
+  then
+    CLT_SORT="sort -V"
+  else
+    CLT_SORT="sort"
+  fi
+
   CLT_PACKAGE=$(softwareupdate -l | \
                 grep -B 1 -E "Command Line (Developer|Tools)" | \
-                awk -F"*" '/^ +\*/ {print $2}' | sed 's/^ *//' | head -n1)
+                awk -F"*" '/^ +\*/ {print $2}' | \
+                sed 's/^ *//' | \
+                grep "$CLT_MACOS_VERSION" |
+                $CLT_SORT |
+                tail -n1)
   sudo softwareupdate -i "$CLT_PACKAGE"
   sudo rm -f "$CLT_PLACEHOLDER"
-  if ! [ -f "/usr/include/iconv.h" ]; then
+  if ! [ -f "/Library/Developer/CommandLineTools/usr/bin/git" ]
+  then
     if [ -n "$STRAP_INTERACTIVE" ]; then
       echo
       logn "Requesting user install of Xcode Command Line Tools:"
@@ -219,18 +269,12 @@ fi
 
 # Download Homebrew.
 export GIT_DIR="$HOMEBREW_REPOSITORY/.git" GIT_WORK_TREE="$HOMEBREW_REPOSITORY"
-[ -d "$GIT_DIR" ] && HOMEBREW_EXISTING="1"
 git init $Q
 git config remote.origin.url "https://github.com/Homebrew/brew"
 git config remote.origin.fetch "+refs/heads/*:refs/remotes/origin/*"
-if [ -n "$HOMEBREW_EXISTING" ]
-then
-  git fetch $Q
-else
-  git fetch $Q --no-tags --depth=1 --force --update-shallow
-fi
+git fetch $Q --tags --force
 git reset $Q --hard origin/master
-unset GIT_DIR GIT_WORK_TREE HOMEBREW_EXISTING
+unset GIT_DIR GIT_WORK_TREE
 logk
 
 # Update Homebrew.
@@ -242,7 +286,7 @@ logk
 # Install Homebrew Bundle, Cask and Services tap.
 log "Installing Homebrew taps and extensions:"
 brew bundle --file=- <<EOF
-tap 'caskroom/cask'
+tap 'homebrew/cask'
 tap 'homebrew/core'
 tap 'homebrew/services'
 EOF
@@ -279,22 +323,13 @@ if [ -n "$STRAP_GITHUB_USER" ]; then
         git pull $Q --rebase --autostash
       )
     fi
-    (
-      cd ~/.dotfiles
-      for i in script/setup script/bootstrap; do
-        if [ -f "$i" ] && [ -x "$i" ]; then
-          log "Running dotfiles $i:"
-          "$i" 2>/dev/null
-          break
-        fi
-      done
-    )
+    run_dotfile_scripts script/setup script/bootstrap
     logk
   fi
 fi
 
 # Setup Brewfile
-if [ -n "$STRAP_GITHUB_USER" ] && ( [ ! -f "$HOME/.Brewfile" ] || [ "$HOME/.Brewfile" -ef "$HOME/.homebrew-brewfile/Brewfile" ] ); then
+if [ -n "$STRAP_GITHUB_USER" ] && { [ ! -f "$HOME/.Brewfile" ] || [ "$HOME/.Brewfile" -ef "$HOME/.homebrew-brewfile/Brewfile" ]; }; then
   HOMEBREW_BREWFILE_URL="https://github.com/$STRAP_GITHUB_USER/homebrew-brewfile"
 
   if git ls-remote "$HOMEBREW_BREWFILE_URL" &>/dev/null; then
@@ -323,17 +358,22 @@ fi
 
 # Tap a custom Homebrew tap
 if [ -n "$CUSTOM_HOMEBREW_TAP" ]; then
-  log "Tapping $CUSTOM_HOMEBREW_TAP Homebrew tap:"
-  brew tap "$CUSTOM_HOMEBREW_TAP"
+  read -ra CUSTOM_HOMEBREW_TAP <<< "$CUSTOM_HOMEBREW_TAP"
+  log "Running 'brew tap ${CUSTOM_HOMEBREW_TAP[*]}':"
+  brew tap "${CUSTOM_HOMEBREW_TAP[@]}"
   logk
 fi
 
 # Run a custom `brew` command
 if [ -n "$CUSTOM_BREW_COMMAND" ]; then
   log "Executing 'brew $CUSTOM_BREW_COMMAND':"
-  brew "$CUSTOM_BREW_COMMAND"
+  # shellcheck disable=SC2086
+  brew $CUSTOM_BREW_COMMAND
   logk
 fi
+
+# Run post-install dotfiles script
+run_dotfile_scripts script/strap-after-setup
 
 STRAP_SUCCESS="1"
 log "Your system is now Strap'd!"

@@ -2,7 +2,7 @@
 A script to bootstrap a minimal macOS development system. This does not assume you're doing Ruby/Rails/web development but installs the minimal set of software every macOS developer will want.
 
 ## Motivation
-Replacing [Boxen](https://github.com/boxen/boxen/) in [GitHub](https://github.com/) with a better tool. This post outlines the problems with Boxen and requirements for Strap and other tools used by GitHub: http://mikemcquaid.com/2016/06/15/replacing-boxen/
+Replacing [Boxen](https://github.com/boxen/boxen/) in [GitHub](https://github.com/) with a better tool. This post outlines the problems with Boxen and requirements for Strap and other tools used by GitHub: https://mikemcquaid.com/2016/06/15/replacing-boxen/
 
 ## Features
 - Disables Java in Safari (for better security)
@@ -17,7 +17,7 @@ Replacing [Boxen](https://github.com/boxen/boxen/) in [GitHub](https://github.co
 - Installs [Homebrew Services](https://github.com/Homebrew/homebrew-services) (for managing Homebrew-installed services)
 - Installs [Homebrew Cask](https://github.com/caskroom/homebrew-cask) (for installing graphical software)
 - Installs the latest macOS software updates (for better security)
-- Installs dotfiles from a user's `https://github.com/username/dotfiles` repository and runs `script/setup` to configure them.
+- Installs dotfiles from a user's `https://github.com/username/dotfiles` repository and runs `script/setup` to configure them; also runs `script/strap-after-setup` after setting up everything else
 - Installs software from a user's `Brewfile` in their `https://github.com/username/homebrew-brewfile` repository or `.Brewfile` in their home directory.
 - A simple web application to set Git's name, email and GitHub token (needs authorized on any organisations you wish to access)
 - Idempotent
@@ -56,9 +56,9 @@ Instead, to deploy to [Heroku](https://www.heroku.com) click:
 - `SESSION_SECRET`: the secret used for cookie session storage.
 - `WEB_CONCURRENCY`: the number of Unicorn (web server) processes to run (defaults to 3).
 - `STRAP_ISSUES_URL`: the URL where users should file issues (defaults to https://github.com/signisto/strap/issues/new).
-- `STRAP_BEFORE_INSTALL`: instructions displayed in the web application for users to follow before installing Strap (will be wrapped in `<li>` tags).
+- `STRAP_BEFORE_INSTALL`: instructions displayed in the web application for users to follow before installing Strap (wrapped in `<li>` tags).
 tags).
-- `CUSTOM_HOMEBREW_TAP`: an optional Homebrew tap to install with `brew tap`.
+- `CUSTOM_HOMEBREW_TAP`: an optional Homebrew tap to install with `brew tap`. Specify multiple arguments to brew tap by separating values with spaces.
 - `CUSTOM_BREW_COMMAND`: a single `brew` command that is run after all other stages have completed.
 
 ## License
